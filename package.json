@@ -1,0 +1,10 @@
+{
+  "name": "diamond-miner-bot",
+  "version": "1.0.0",
+  "main": "bot.js",
+  "dependencies": {
+    "mineflayer": "^4.11.2",
+    "mineflayer-pathfinder": "^2.3.2",
+    "prismarine-viewer": "^1.17.1"
+  }
+}
