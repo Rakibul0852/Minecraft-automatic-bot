@@ -3,9 +3,9 @@ const { pathfinder, Movements, goals } = require('mineflayer-pathfinder')
 const { Vec3 } = require('vec3')
 
 const server = {
-  host: 'YOUR_SERVER_IP',   // Change to your server IP
-  port: YOUR_SERVER_PORT,          // Change to your server port if different
-  username: 'BOT_NAME'    // Bot username
+  host: 'rakibul966222.aternos.me',   // Change to your server IP
+  port: 31444,          // Change to your server port if different
+  username: 'BOT1'    // Bot username
 }
 
 let bot
