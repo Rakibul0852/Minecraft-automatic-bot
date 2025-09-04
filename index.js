@@ -1,19 +1,38 @@
 const mineflayer = require('mineflayer')
 const { pathfinder, Movements, goals } = require('mineflayer-pathfinder')
 const { Vec3 } = require('vec3')
-const http = require('http') // ✅ HTTP module
+const fetch = require('node-fetch')
+const http = require('http')
+
+const GEMINI_API_KEY = 'AIzaSyB05lYaarzH8GrGpcnVmGZ7_SNeZIwcZaQ'
 
 const server = {
   host: 'rakibul966222.aternos.me',
   port: 31444,
-  username: 'SmartBot'
+  username: 'BOT_NAME'
 }
 
 let bot
 
+async function askGemini(prompt) {
+  try {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }]
+      })
+    })
+    const data = await res.json()
+    return data?.candidates?.[0]?.content?.parts?.[0]?.text || 'No response'
+  } catch (err) {
+    console.error('Gemini API error:', err)
+    return 'Error from AI'
+  }
+}
+
 function createBot() {
   bot = mineflayer.createBot(server)
-
   bot.loadPlugin(pathfinder)
 
   bot.once('spawn', () => {
@@ -21,106 +40,87 @@ function createBot() {
     const defaultMove = new Movements(bot, mcData)
     bot.pathfinder.setMovements(defaultMove)
 
-    // ✅ Random movement
+    bot.chat('✅ Bot connected and ready!')
+
+    // Random movement loop
     setInterval(() => {
       const pos = bot.entity.position
-      const offset = new Vec3((Math.random() - 0.5) * 10, 0, (Math.random() - 0.5) * 10)
+      const offset = new Vec3(
+        (Math.random() - 0.5) * 8,
+        0,
+        (Math.random() - 0.5) * 8
+      )
       const target = pos.plus(offset)
       bot.pathfinder.setGoal(new goals.GoalBlock(
         Math.floor(target.x),
         Math.floor(target.y),
         Math.floor(target.z)
       ))
-    }, 5000)
+    }, 3000)
 
-    // ✅ Dig nearby block
-    setInterval(() => {
-      const directions = [
-        new Vec3(0, -1, 0),
-        new Vec3(1, -1, 0),
-        new Vec3(-1, -1, 0),
-        new Vec3(0, -1, 1),
-        new Vec3(0, -1, -1)
-      ]
-      for (const dir of directions) {
-        const block = bot.blockAt(bot.entity.position.plus(dir))
-        if (block && bot.canDigBlock(block)) {
-          bot.dig(block).catch(() => {})
-          break
-        }
-      }
-    }, 10000)
-
-    // ✅ Jump
+    // Anti-AFK: প্রতি 20 সেকেন্ডে লাফ দিবে
     setInterval(() => {
       bot.setControlState('jump', true)
       setTimeout(() => bot.setControlState('jump', false), 500)
-    }, 15000)
-
-    // ✅ Pick up nearby items
-    setInterval(() => {
-      const items = Object.values(bot.entities).filter(e => e.name === 'item')
-      if (items.length > 0) {
-        const item = items[0]
-        bot.pathfinder.setGoal(new goals.GoalBlock(
-          Math.floor(item.position.x),
-          Math.floor(item.position.y),
-          Math.floor(item.position.z)
-        ))
-      }
-    }, 12000)
-
-    // ✅ Health warning
-    setInterval(() => {
-      if (bot.health < 10) {
-        bot.chat('⚠️ আমার health কমে গেছে! একটু সাবধান হও!')
-      }
-    }, 7000)
-
-    // ✅ Start HTTP server
-    const httpServer = http.createServer((req, res) => {
-      bot.chat('🌐 কেউ HTTP সার্ভারে কানেক্ট করেছে!')
-      console.log('📡 HTTP request received:', req.url)
-      res.writeHead(200, { 'Content-Type': 'text/plain' })
-      res.end('Bot received your request!\n')
-    })
-
-    httpServer.listen(3000, () => {
-      console.log('🚀 HTTP server running on port 3000')
-    })
+    }, 20000)
   })
 
-  // ✅ Chat response
-  bot.on('chat', (username, message) => {
+  // OP হলে Creative মোডে যাবে
+  bot.on('op', () => {
+    if (bot.game.gameMode === 'survival') {
+      bot.chat('/gamemode creative')
+      bot.chat('🎨 Switched to Creative mode!')
+    }
+  })
+
+  // Chat commands
+  bot.on('chat', async (username, message) => {
     if (username === bot.username) return
 
-    const msg = message.toLowerCase()
-    if (msg.includes('hello')) {
-      bot.chat(`হ্যালো ${username}! আমি এখানে আছি তোমার সাহায্যের জন্য!`)
+    if (message.startsWith('/ai ')) {
+      const prompt = message.slice(4).trim()
+      bot.chat(`Processing: ${prompt}`)
+      const aiResponse = await askGemini(prompt)
+      bot.chat(`AI says: ${aiResponse}`)
     }
-    if (msg.includes('come')) {
-      const player = bot.players[username]?.entity
-      if (player) {
-        bot.chat('আমি তোমার দিকে আসছি!')
-        bot.pathfinder.setGoal(new goals.GoalFollow(player, 1), true)
+
+    if (message === '.Rakib966222') {
+      const target = bot.players[username]?.entity
+      if (!target) {
+        bot.chat("I can't see you!")
+        return
       }
+      bot.chat(`Following ${username}...`)
+      bot.pathfinder.setGoal(new goals.GoalFollow(target, 1), true)
     }
-    if (msg.includes('stop')) {
-      bot.chat('ঠিক আছে, আমি থেমে যাচ্ছি।')
-      bot.pathfinder.setGoal(null)
+
+    if (message === '/inv') {
+      const items = bot.inventory.items().map(i => `${i.name} x${i.count}`).join(', ')
+      bot.chat(items || 'Inventory is empty')
     }
   })
 
-  // ✅ Reconnect if disconnected
+  // যদি কিক হয় বা কানেকশন শেষ হয় → সাথে সাথে রি-কানেক্ট
   bot.on('end', () => {
-    console.log('🔄 Bot disconnected. Reconnecting...')
-    setTimeout(createBot, 5000)
+    console.log('Bot disconnected. Reconnecting in 3s...')
+    setTimeout(createBot, 3000)
   })
 
-  // ✅ Error logging
-  bot.on('error', (err) => {
-    console.log('❌ Bot error:', err)
+  bot.on('kicked', reason => {
+    console.log('Kicked:', reason)
+  })
+
+  bot.on('error', err => {
+    console.error('Bot error:', err)
   })
 }
+
+// লোকাল পোর্ট ওপেন করে স্ট্যাটাস দেখানো
+http.createServer((req, res) => {
+  res.writeHead(200, { 'Content-Type': 'text/plain' })
+  res.end('🤖 Minecraft Bot is running and connected to rakibul966222.aternos.me:31444\n')
+}).listen(8080, () => {
+  console.log('Status server running at http://localhost:8080')
+})
 
 createBot()
