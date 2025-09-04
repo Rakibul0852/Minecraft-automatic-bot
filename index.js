@@ -1,85 +1,126 @@
-const mineflayer = require("mineflayer");
-const { pathfinder, Movements, goals } = require("mineflayer-pathfinder");
-const { Vec3 } = require("vec3");
-const http = require("http");
+const mineflayer = require('mineflayer')
+const { pathfinder, Movements, goals } = require('mineflayer-pathfinder')
+const { Vec3 } = require('vec3')
+const http = require('http') // ✅ HTTP module
 
 const server = {
-  host: "rakibul966222.aternos.me", // Change to your server IP
-  port: 31444, // Change to your server port if different
-  username: "BOT2", // Bot username
-};
-
-let bot;
-
-function createBot() {
-  bot = mineflayer.createBot(server);
-
-  bot.loadPlugin(pathfinder);
-
-  bot.once("spawn", () => {
-    const mcData = require("minecraft-data")(bot.version);
-    const defaultMove = new Movements(bot, mcData);
-    bot.pathfinder.setMovements(defaultMove);
-
-    // Random movement every 5 seconds
-    setInterval(() => {
-      const pos = bot.entity.position;
-      const offset = new Vec3(
-        (Math.random() - 1.5) * 8,
-        0,
-        (Math.random() - 2.5) * 8
-      );
-      const target = pos.plus(offset);
-      bot.pathfinder.setGoal(
-        new goals.GoalBlock(Math.floor(target.x), Math.floor(target.y), Math.floor(target.z))
-      );
-    }, 1000);
-
-    // Dig nearby or below block every 5 seconds
-    setInterval(() => {
-      const block =
-        bot.blockAt(bot.entity.position.offset(0, -1, 0)) ||
-        bot.blockAt(bot.entity.position.offset(1, -1, 0)) ||
-        bot.blockAt(bot.entity.position.offset(-1, -1, 0));
-
-      if (block && bot.canDigBlock(block)) {
-        bot.dig(block).catch(() => {});
-      }
-    }, 3000);
-
-    // Jump every 10 seconds
-    setInterval(() => {
-      bot.setControlState("jump", true);
-      setTimeout(() => {
-        bot.setControlState("jump", false);
-      }, 500);
-    }, 5000);
-
-    // Quit after 1 minute
-    setTimeout(() => {
-      bot.quit();
-    }, 40000);
-  });
-
-  bot.on("end", () => {
-    setTimeout(createBot, 1000);
-  });
-
-  bot.on("error", () => {});
+  host: 'rakibul966222.aternos.me',
+  port: 31444,
+  username: 'SmartBot'
 }
 
-createBot();
+let bot
 
-// Simple HTTP server for Render deployment
-const PORT = process.env.PORT || 3000;
+function createBot() {
+  bot = mineflayer.createBot(server)
 
-const webServer = http.createServer((req, res) => {
-  res.writeHead(200, { "Content-Type": "text/plain" });
-  res.end("AFKBOT is running!\n");
-});
+  bot.loadPlugin(pathfinder)
 
-webServer.listen(PORT, () => {
-  console.log(`Web server listening on port ${PORT}`);
-});
+  bot.once('spawn', () => {
+    const mcData = require('minecraft-data')(bot.version)
+    const defaultMove = new Movements(bot, mcData)
+    bot.pathfinder.setMovements(defaultMove)
 
+    // ✅ Random movement
+    setInterval(() => {
+      const pos = bot.entity.position
+      const offset = new Vec3((Math.random() - 0.5) * 10, 0, (Math.random() - 0.5) * 10)
+      const target = pos.plus(offset)
+      bot.pathfinder.setGoal(new goals.GoalBlock(
+        Math.floor(target.x),
+        Math.floor(target.y),
+        Math.floor(target.z)
+      ))
+    }, 5000)
 
+    // ✅ Dig nearby block
+    setInterval(() => {
+      const directions = [
+        new Vec3(0, -1, 0),
+        new Vec3(1, -1, 0),
+        new Vec3(-1, -1, 0),
+        new Vec3(0, -1, 1),
+        new Vec3(0, -1, -1)
+      ]
+      for (const dir of directions) {
+        const block = bot.blockAt(bot.entity.position.plus(dir))
+        if (block && bot.canDigBlock(block)) {
+          bot.dig(block).catch(() => {})
+          break
+        }
+      }
+    }, 10000)
+
+    // ✅ Jump
+    setInterval(() => {
+      bot.setControlState('jump', true)
+      setTimeout(() => bot.setControlState('jump', false), 500)
+    }, 15000)
+
+    // ✅ Pick up nearby items
+    setInterval(() => {
+      const items = Object.values(bot.entities).filter(e => e.name === 'item')
+      if (items.length > 0) {
+        const item = items[0]
+        bot.pathfinder.setGoal(new goals.GoalBlock(
+          Math.floor(item.position.x),
+          Math.floor(item.position.y),
+          Math.floor(item.position.z)
+        ))
+      }
+    }, 12000)
+
+    // ✅ Health warning
+    setInterval(() => {
+      if (bot.health < 10) {
+        bot.chat('⚠️ আমার health কমে গেছে! একটু সাবধান হও!')
+      }
+    }, 7000)
+
+    // ✅ Start HTTP server
+    const httpServer = http.createServer((req, res) => {
+      bot.chat('🌐 কেউ HTTP সার্ভারে কানেক্ট করেছে!')
+      console.log('📡 HTTP request received:', req.url)
+      res.writeHead(200, { 'Content-Type': 'text/plain' })
+      res.end('Bot received your request!\n')
+    })
+
+    httpServer.listen(3000, () => {
+      console.log('🚀 HTTP server running on port 3000')
+    })
+  })
+
+  // ✅ Chat response
+  bot.on('chat', (username, message) => {
+    if (username === bot.username) return
+
+    const msg = message.toLowerCase()
+    if (msg.includes('hello')) {
+      bot.chat(`হ্যালো ${username}! আমি এখানে আছি তোমার সাহায্যের জন্য!`)
+    }
+    if (msg.includes('come')) {
+      const player = bot.players[username]?.entity
+      if (player) {
+        bot.chat('আমি তোমার দিকে আসছি!')
+        bot.pathfinder.setGoal(new goals.GoalFollow(player, 1), true)
+      }
+    }
+    if (msg.includes('stop')) {
+      bot.chat('ঠিক আছে, আমি থেমে যাচ্ছি।')
+      bot.pathfinder.setGoal(null)
+    }
+  })
+
+  // ✅ Reconnect if disconnected
+  bot.on('end', () => {
+    console.log('🔄 Bot disconnected. Reconnecting...')
+    setTimeout(createBot, 5000)
+  })
+
+  // ✅ Error logging
+  bot.on('error', (err) => {
+    console.log('❌ Bot error:', err)
+  })
+}
+
+createBot()
