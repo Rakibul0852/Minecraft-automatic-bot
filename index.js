@@ -77,7 +77,8 @@ function createBot() {
       }
     }, 7000)
 
-    // ✅ Start HTTP server with bot info
+    // ✅ Start HTTP server (Render-compatible)
+    const port = process.env.PORT || 8080
     const httpServer = http.createServer((req, res) => {
       bot.chat('🌐 কেউ HTTP সার্ভারে কানেক্ট করেছে!')
       console.log('📩 HTTP request received:', req.url)
@@ -97,8 +98,8 @@ function createBot() {
       res.end(botInfo)
     })
 
-    httpServer.listen(8080, () => {
-      console.log('🚀 HTTP server running on port 8080')
+    httpServer.listen(port, '0.0.0.0', () => {
+      console.log(`🚀 HTTP server running on port ${port}`)
     })
   })
 
