@@ -7,8 +7,8 @@ const http = require('http')
 const GEMINI_API_KEY = 'AIzaSyB05lYaarzH8GrGpcnVmGZ7_SNeZIwcZaQ'
 
 const server = {
-  host: 'rakibul966222.aternos.me',
-  port: 31444,
+  host: 'rakib966222-dKD9.aternos.me',
+  port: 23410,
   username: 'BOT_NAME'
 }
 
